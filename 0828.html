@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>單人 TRPG 冒險 (Gemini Canvas 版)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and scrollbars */
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            background-color: #0a0a0a; /* Dark background */
+        }
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #2d3748;
+            border-radius: 10px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background-color: #4a5568;
+            border-radius: 10px;
+            border: 2px solid #2d3748;
+        }
+        .scrollbar-thin {
+            scrollbar-width: thin;
+            scrollbar-color: #4a5568 #2d3748;
+        }
+        /* Ensure containers take full height */
+        #game-container > div {
+            min-height: calc(100vh - 4rem); /* Adjust for header/footer if needed */
+        }
+        /* Custom styles for the message box */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1a202c;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        /* HP bar styles */
+        #hp-bar-container {
+            width: 100%;
+            background-color: #4a5568;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        #hp-bar {
+            height: 100%;
+            transition: width 0.5s ease-in-out;
+            background-color: #f56565; /* Red-500 */
+        }
+        .san-bar {
+            height: 100%;
+            transition: width 0.5s ease-in-out;
+            background-color: #f6ad55; /* Orange-400 */
+        }
+        .mp-bar {
+            height: 100%;
+            transition: width 0.5s ease-in-out;
+            background-color: #4299e1; /* Blue-400 */
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200">
+
+<div id="game-container" class="flex flex-col md:flex-row h-screen">
+    <!-- 左側欄位：遊戲日誌 -->
+    <div id="story-column" class="md:w-1/2 p-4 md:p-8 flex-col h-full bg-gray-900 border-r-2 border-gray-800 hidden">
+        <h1 class="text-3xl font-bold mb-4 text-center text-teal-400">冒險日誌</h1>
+        <div id="story-log" class="flex-grow overflow-y-auto scrollbar-thin space-y-4 p-4 rounded-lg bg-gray-800 shadow-inner">
+            <!-- 遊戲故事將在此處動態添加 -->
+        </div>
+        <!-- 下載遊戲記錄按鈕 -->
+        <div class="mt-4 pt-4 border-t border-gray-700">
+             <button id="download-game-state-btn" class="w-full px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300">
+                下載遊戲記錄
+            </button>
+        </div>
+    </div>
+
+    <!-- 右側欄位：設定、角色創建或行動 -->
+    <div class="md:w-1/2 p-4 md:p-8 flex flex-col h-full">
+
+        <!-- Google 登入/登出按鈕已移除 -->
+        <div class="flex justify-end mb-4">
+            <span id="user-info" class="text-gray-400 flex items-center ml-2"></span>
+        </div>
+
+        <!-- 步驟 1: 初始設定頁面 -->
+        <div id="setup-page" class="flex-shrink-0 mb-8 p-6 rounded-xl bg-gray-800 border border-gray-700 shadow-lg">
+            <h2 class="text-2xl font-semibold text-center mb-4 text-emerald-400">冒險設定</h2>
+
+            <div class="space-y-4">
+                <div class="space-y-2">
+                    <label for="game-style-select" class="block text-sm font-medium">冒險風格：</label>
+                    <select id="game-style-select" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500">
+                        <option value="奇幻">奇幻 (Fantasy)</option>
+                        <option value="科幻">科幻 (Sci-Fi)</option>
+                        <option value="偵探">偵探 (Detective)</option>
+                        <option value="恐怖">恐怖 (Horror)</option>
+                        <option value="自定義">自定義 (Custom)</option>
+                    </select>
+                </div>
+                 <!-- 自定義風格輸入框 -->
+                <div id="custom-style-input-container" class="space-y-2 hidden">
+                    <label for="custom-style-input" class="block text-sm font-medium">自定義世界觀：</label>
+                    <input type="text" id="custom-style-input" placeholder="例如：賽博龐克、末日生存" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500">
+                </div>
+
+                <div class="space-y-2">
+                    <label for="game-turns" class="block text-sm font-medium">回合數 (至少6):</label>
+                    <input type="number" id="game-turns" min="6" value="6" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500">
+                </div>
+
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">難度設定：</label>
+                    <div class="flex items-center justify-between mt-1">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="difficulty" value="easy" class="form-radio text-teal-500" checked>
+                            <span class="ml-2">簡單</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="difficulty" value="medium" class="form-radio text-teal-500">
+                            <span class="ml-2">中等</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="difficulty" value="hard" class="form-radio text-teal-500">
+                            <span class="ml-2">困難</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button id="next-to-char-btn" class="w-full mt-4 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-teal-600 hover:to-emerald-700 transition duration-300">
+                    下一步：建立角色
+                </button>
+
+                <!-- 遊戲記錄上傳功能 -->
+                <div class="mt-8 pt-4 border-t border-gray-700 space-y-4">
+                    <h3 class="text-lg font-bold text-gray-300 mb-2">遊戲記錄管理</h3>
+                    <div class="flex space-x-4">
+                        <input type="file" id="upload-game-state" accept=".json" class="hidden">
+                        <button id="upload-game-state-btn" class="flex-1 px-4 py-2 bg-yellow-600 text-white font-bold rounded-lg shadow-md hover:bg-yellow-700 transition duration-300">
+                            上傳遊戲記錄
+                        </button>
+                    </div>
+                    <!-- Google Drive 紀錄相關按鈕與列表已移除 -->
+                    <div id="drive-saves-list" class="mt-4 p-4 bg-gray-700 rounded-lg hidden">
+                        <h4 class="text-md font-bold text-gray-300 mb-2">Google Drive 已儲存的紀錄:</h4>
+                        <div id="drive-saves-container" class="space-y-2">
+                            <p class="text-gray-400 text-center">Google Drive 儲存功能已移除。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 步驟 2: 角色創建頁面 -->
+        <div id="character-creation-page" class="flex-shrink-0 mb-8 p-6 rounded-xl bg-gray-800 border border-gray-700 shadow-lg hidden">
+            <h2 class="text-2xl font-semibold text-center mb-4 text-emerald-400">建立你的角色</h2>
+            <div id="char-creation-content" class="space-y-4">
+                 <!-- 角色資訊輸入框 -->
+                <div class="space-y-2">
+                    <label for="char-name" class="block text-sm font-medium">角色名稱：</label>
+                    <input type="text" id="char-name" placeholder="正在生成名稱..." class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500">
+                </div>
+                <div class="space-y-2">
+                    <label for="char-background" class="block text-sm font-medium">背景故事：</label>
+                    <textarea id="char-background" rows="4" placeholder="正在生成背景故事..." class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500"></textarea>
+                </div>
+                 <div class="space-y-2">
+                    <label for="char-ability-input" class="block text-sm font-medium">特殊能力與觸發條件：</label>
+                    <textarea id="char-ability-input" rows="3" placeholder="範例：[天生神力]: 適用於力量檢定，擲骰 D20，結果 18-20 時觸發。效果：成功難度降低 5。" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500"></textarea>
+                </div>
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">屬性點數分配 (總點數 <span id="max-points-display">10</span>)：</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex items-center space-x-2">
+                            <label for="char-str" class="text-sm font-semibold text-yellow-400 w-16">力量(STR)</label>
+                            <input type="number" id="char-str" min="1" max="10" value="0" class="w-20 rounded-md bg-gray-700 border-gray-600 shadow-sm p-1 text-gray-200 text-center">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label for="char-dex" class="text-sm font-semibold text-blue-400 w-16">敏捷(DEX)</label>
+                            <input type="number" id="char-dex" min="1" max="10" value="0" class="w-20 rounded-md bg-gray-700 border-gray-600 shadow-sm p-1 text-gray-200 text-center">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label for="char-int" class="text-sm font-semibold text-purple-400 w-16">智力(INT)</label>
+                            <input type="number" id="char-int" min="1" max="10" value="0" class="w-20 rounded-md bg-gray-700 border-gray-600 shadow-sm p-1 text-gray-200 text-center">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label for="char-con" class="text-sm font-semibold text-green-400 w-16">體力(CON)</label>
+                            <input type="number" id="char-con" min="1" max="10" value="0" class="w-20 rounded-md bg-gray-700 border-gray-600 shadow-sm p-1 text-gray-200 text-center">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label for="char-san" class="text-sm font-semibold text-orange-400 w-16">理智(SAN)</label>
+                            <input type="number" id="char-san" min="1" max="10" value="0" class="w-20 rounded-md bg-gray-700 border-gray-600 shadow-sm p-1 text-gray-200 text-center">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label for="char-cha" class="text-sm font-semibold text-pink-400 w-16">魅力(CHA)</label>
+                            <input type="number" id="char-cha" min="1" max="10" value="0" class="w-20 rounded-md bg-gray-700 border-gray-600 shadow-sm p-1 text-gray-200 text-center">
+                        </div>
+                    </div>
+                    <p id="points-left" class="text-right text-sm font-bold text-gray-400">剩餘點數: 10</p>
+                </div>
+            </div>
+            <button id="start-game-btn" class="w-full mt-4 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold rounded-lg shadow-lg hover:from-teal-600 hover:to-emerald-700 transition duration-300">
+                開始冒險！
+            </button>
+        </div>
+
+        <!-- 步驟 3: 遊戲頁面 -->
+        <div id="game-page" class="flex-shrink-0 mb-8 p-6 rounded-xl bg-gray-800 border border-gray-700 shadow-lg hidden">
+            <div id="character-sheet" class="flex-shrink-0 mb-8 p-6 rounded-xl bg-gray-800 border border-gray-700 shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 text-center text-emerald-400">角色狀態</h2>
+                <div class="space-y-2 mb-4">
+                    <p id="display-name" class="text-xl font-bold text-teal-300">姓名: </p>
+                    <p id="display-style" class="text-md text-gray-400">風格: </p>
+                    <p id="display-current-turn" class="text-md text-gray-400">當前回合: </p>
+                </div>
+                 <!-- HP 進度條 -->
+                <div class="mb-4">
+                    <label for="hp-bar" class="block text-md font-medium text-red-400">HP: <span id="display-hp-value"></span></label>
+                    <div id="hp-bar-container" class="w-full h-4 relative mt-1">
+                        <div id="hp-bar" class="bg-red-500 absolute h-full rounded-full transition-all duration-500 ease-in-out" style="width: 100%;"></div>
+                    </div>
+                </div>
+                 <!-- 屬性顯示 (值與括號) -->
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <span class="block text-xl font-bold text-yellow-400">力量</span>
+                        <span class="text-lg font-bold" id="display-str-value"></span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-xl font-bold text-blue-400">敏捷</span>
+                        <span class="text-lg font-bold" id="display-dex-value"></span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-xl font-bold text-purple-400">智力</span>
+                        <span class="text-lg font-bold" id="display-int-value"></span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-xl font-bold text-green-400">體力</span>
+                        <span class="text-lg font-bold" id="display-con-value"></span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-xl font-bold text-orange-400">理智</span>
+                        <span class="text-lg font-bold" id="display-san-value"></span>
+                    </div>
+                    <div class="text-center">
+                        <span class="block text-xl font-bold text-pink-400">魅力</span>
+                        <span class="text-lg font-bold" id="display-cha-value"></span>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h3 class="text-lg font-bold text-gray-300 mb-2">背景故事</h3>
+                    <div id="display-background" class="rounded-xl p-4 bg-gray-700 border border-gray-600 shadow-lg text-sm text-gray-300"></div>
+                </div>
+                <div class="mt-4">
+                    <h3 class="text-lg font-bold text-gray-300 mb-2">特殊能力</h3>
+                    <!-- 特殊能力顯示和按鈕區塊 -->
+                    <div id="display-ability-container" class="rounded-xl p-4 bg-gray-700 border border-gray-600 shadow-lg text-sm text-gray-300">
+                        <div id="display-ability-text"></div>
+                        <button id="use-ability-btn" class="w-full mt-3 px-4 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                            使用特殊能力
+                        </button>
+                        <p id="ability-cooldown-display" class="text-center text-xs text-gray-400 mt-2"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="game-controls" class="flex-grow flex flex-col justify-end p-6 rounded-xl bg-gray-800 border border-gray-700 shadow-lg">
+                <div id="action-prompt" class="mb-4 text-lg text-center text-gray-300">
+                    <!-- 行動提示將在此處顯示 -->
+                </div>
+                <!-- AI 生成的行動選項容器 -->
+                <div id="ai-action-options-container" class="flex flex-col space-y-4">
+                    <!-- AI 生成的行動選項將在此處動態添加 -->
+                </div>
+
+                <!-- 預設行動按鈕 (僅在AI未提供選項時顯示) -->
+                <div id="default-actions-group" class="mt-8 pt-4 border-t border-gray-700 hidden">
+                    <h3 class="text-lg font-bold text-gray-300 mb-4 text-center">預設行動</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button id="default-action-forward" class="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-300">
+                            持續前進
+                        </button>
+                        <button id="default-action-observe" class="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-300">
+                            觀察情況
+                        </button>
+                        <button id="default-action-rest" class="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-300">
+                            原地休息
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 自訂行動區塊 (總是顯示) -->
+                <div id="custom-action-group" class="mt-8 pt-4 border-t border-gray-700">
+                    <h3 class="text-lg font-bold text-gray-300 mb-4 text-center">自訂行動</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="custom-action-text" class="block text-sm font-medium">行動描述：</label>
+                            <textarea id="custom-action-text" rows="2" placeholder="例如：嘗試用繩索爬上懸崖" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500"></textarea>
+                            <p id="ai-attribute-suggestion" class="text-xs text-gray-400 mt-1">AI 建議屬性: 待分析</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="custom-action-dice" class="block text-sm font-medium">使用骰子：</label>
+                                <select id="custom-action-dice" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500">
+                                    <option value="d6">D6</option>
+                                    <option value="d10">D10</option>
+                                    <option value="d20">D20</option>
+                                    <option value="d30">D30</option>
+                                    <option value="d60">D60</option>
+                                    <option value="d100">D100</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="custom-action-difficulty" class="block text-sm font-medium">行動難度：</label>
+                                <!-- max 屬性將由 JavaScript 動態設定 -->
+                                <input type="number" id="custom-action-difficulty" min="1" value="5" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 text-center focus:ring-teal-500 focus:border-teal-500">
+                            </div>
+                        </div>
+                        <button id="execute-custom-action-btn" class="w-full px-4 py-2 bg-purple-600 text-white font-bold rounded-lg shadow-md hover:bg-purple-700 transition duration-300">
+                            執行自訂行動
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Google API 相關的 script 已移除 -->
+
+<script type="module">
+    const GOOGLE_APP_NAME = 'TRPG_Game_Gemini_Canvas'; // 此常數不再使用，但保留以防萬一
+
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+
+    const GAME_STATE_FILENAME = 'trpg_game_state.json';
+
+    let gameState = {
+        geminiApiKey: "AIzaSyCEIsgA8IDtFfJX1sNNv48xnm1TTYKInm4", // Embedded API key
+        name: "",
+        background: "",
+        ability: "",
+        style: "",
+        hp: 50,
+        maxHp: 50,
+        str: 0,
+        dex: 0,
+        int: 0,
+        con: 0,
+        san: 0,
+        cha: 0,
+        storyLog: [],
+        currentEvent: null,
+        loadingStory: false,
+        gameLength: 6,
+        currentTurn: 1, 
+        difficulty: "medium",
+        aiSuggestedCustomSkill: null,
+        abilityCooldown: 0, // 新增: 特殊能力冷卻時間
+        abilityMaxCooldown: 3, // 新增: 特殊能力最大冷卻時間 (例如 3 回合)
+        nextActionDifficultyReduction: 0 // 新增: 下次行動的難度減免
+    };
+    
+    const statInputs = ['char-str', 'char-dex', 'char-int', 'char-con', 'char-san', 'char-cha'];
+    const totalPoints = 10; // Modified: 總屬性點數為 10
+    const attributeMapping = { // 用於屬性名稱顯示
+        str: '力量',
+        dex: '敏捷',
+        int: '智力',
+        con: '體力',
+        san: '理智',
+        cha: '魅力'
+    };
+
+    // Define dice map globally within the module script
+    const diceMap = {
+        'd6': 6, 'd10': 10, 'd20': 20, 'd30': 30, 'd60': 60, 'd100': 100
+    };
+
+    // Declare elements globally as an empty object. It will be populated in window.onload.
+    let elements = {};
+
+    // Google API 相關的初始化函數已移除
+
+
+    function showMessage(message, type = 'info') {
+        const existingMessageBox = document.querySelector('.message-box');
+        if (existingMessageBox) {
+            existingMessageBox.remove();
+        }
+
+        const messageBox = document.createElement('div');
+        messageBox.className = `message-box p-4 rounded-lg shadow-xl border ${type === 'error' ? 'bg-red-900 border-red-700' : 'bg-gray-800 border-gray-700'} text-gray-200 max-w-sm text-center`;
+        messageBox.innerHTML = `
+            <p>${message}</p>
+            <button class="mt-4 px-4 py-2 bg-teal-600 rounded-md hover:bg-teal-700 transition duration-200">關閉</button>
+        `;
+        document.body.appendChild(messageBox);
+        
+        messageBox.querySelector('button').addEventListener('click', () => {
+            messageBox.remove();
+        });
+    }
+
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // Google 登入/登出和 Drive 相關功能已移除
+
+
+    // --- Game Logic ---
+    function showSetupPage() {
+        elements.setupPage.classList.remove('hidden');
+        elements.characterCreationPage.classList.add('hidden');
+        elements.gamePage.classList.add('hidden');
+        elements.storyColumn.classList.add('hidden');
+    }
+
+    function showCharacterCreationPage() {
+        elements.setupPage.classList.add('hidden');
+        elements.characterCreationPage.classList.remove('hidden');
+        elements.gamePage.classList.add('hidden');
+        elements.storyColumn.classList.add('hidden');
+    }
+
+    function showGamePage() {
+        elements.setupPage.classList.add('hidden');
+        elements.characterCreationPage.classList.add('hidden');
+        elements.gamePage.classList.remove('hidden');
+        elements.storyColumn.classList.remove('hidden');
+    }
+    
+    function renderCharacterSheet() {
+        if (!elements.gamePage) return;
+        elements.displayName.textContent = `姓名: ${gameState.name}`;
+        elements.displayStyle.textContent = `風格: ${gameState.style}`;
+        
+        elements.displayHpValue.textContent = `${gameState.hp} / ${gameState.maxHp}`;
+        const hpPercentage = (gameState.hp / gameState.maxHp) * 100;
+        elements.hpBar.style.width = `${hpPercentage}%`;
+
+        elements.displayStrValue.textContent = `${gameState.str} (+0)`;
+        elements.displayDexValue.textContent = `${gameState.dex} (+0)`;
+        elements.displayIntValue.textContent = `${gameState.int} (+0)`;
+        elements.displayConValue.textContent = `${gameState.con} (+0)`;
+        elements.displaySanValue.textContent = `${gameState.san} (+0)`;
+        elements.displayChaValue.textContent = `${gameState.cha} (+0)`;
+
+        elements.displayCurrentTurn.textContent = `當前回合: ${gameState.currentTurn} / ${gameState.gameLength}`;
+        if (elements.displayBackground) elements.displayBackground.textContent = gameState.background;
+
+        // 特殊能力顯示
+        if (elements.displayAbilityText) elements.displayAbilityText.textContent = gameState.ability;
+
+        if (elements.useAbilityBtn) {
+            if (gameState.abilityCooldown > 0) {
+                elements.useAbilityBtn.disabled = true;
+                elements.useAbilityBtn.textContent = `能力冷卻中 (${gameState.abilityCooldown} 回合)`;
+                elements.abilityCooldownDisplay.textContent = `下次可用: ${gameState.abilityCooldown} 回合後`;
+            } else {
+                elements.useAbilityBtn.disabled = false;
+                elements.useAbilityBtn.textContent = '使用特殊能力';
+                elements.abilityCooldownDisplay.textContent = '能力已就緒';
+            }
+            if (gameState.hp <= 0) { // 角色死亡時禁用能力
+                elements.useAbilityBtn.disabled = true;
+                elements.useAbilityBtn.textContent = '無法使用能力 (角色已死亡)';
+            }
+        }
+    }
+
+    function renderStoryLog() {
+        if (!elements.storyLog) return;
+        elements.storyLog.innerHTML = '';
+        gameState.storyLog.forEach(entry => {
+            const div = document.createElement('div');
+            let contentHtml = '';
+            if (entry.type === 'narration') {
+                contentHtml = `<p class="text-sm italic text-gray-400">${entry.content}</p>`;
+            } else if (entry.type === 'event') {
+                contentHtml = `<div class="bg-gray-700 p-4 rounded-lg shadow-md"><p class="text-lg font-medium">${entry.content}</p></div>`;
+            } else if (entry.type === 'action') {
+                contentHtml = `<p class="text-sm font-semibold text-teal-400">你選擇了: ${entry.content}</p>`;
+            } else if (entry.type === 'roll') {
+                contentHtml = `<p class="text-sm text-yellow-300">🎲 擲骰結果: ${entry.content}</p>`;
+            } else if (entry.type === 'result') {
+                let textColorClass = '';
+                if (entry.isCriticalSuccess) {
+                    textColorClass = 'text-emerald-500'; // 深綠色 for Critical Success
+                } else if (entry.success) {
+                    textColorClass = 'text-green-400'; // 綠色 for Success
+                } else if (entry.isCriticalFailure) {
+                    textColorClass = 'text-red-700'; // 深紅色 for Critical Failure
+                } else {
+                    textColorClass = 'text-red-400'; // 紅色 for Failure
+                }
+                contentHtml = `<p class="text-sm ${textColorClass}">${entry.content}</p>`;
+            } else if (entry.type === 'ability_use') { // 新增能力使用日誌類型
+                contentHtml = `<div class="bg-blue-800 p-3 rounded-lg shadow-md"><p class="text-sm text-white font-bold">✨ 特殊能力使用: ${entry.content}</p></div>`;
+            }
+            div.innerHTML = contentHtml;
+            elements.storyLog.appendChild(div);
+        });
+        // Add loading animation if story is being generated
+        if (gameState.loadingStory) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'text-center p-4';
+            loadingDiv.innerHTML = `
+                <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500 mx-auto mb-2"></div>
+                <p class="text-indigo-400">故事生成中...</p>
+            `;
+            elements.storyLog.appendChild(loadingDiv);
+        }
+
+        elements.storyLog.scrollTop = elements.storyLog.scrollHeight;
+    }
+
+    function renderActionOptions() {
+        if (!elements.aiActionOptionsContainer || !elements.defaultActionsGroup || !elements.customActionGroup) return;
+
+        elements.aiActionOptionsContainer.innerHTML = ''; // 清空 AI 生成選項
+
+        // Only show options if not loading story
+        if (gameState.loadingStory) {
+            elements.actionPrompt.textContent = "處理中...";
+            elements.defaultActionsGroup.classList.add('hidden');
+            elements.customActionGroup.classList.add('hidden'); // Hide custom actions during loading
+            return;
+        }
+
+        const aiProvidedOptions = gameState.currentEvent && gameState.currentEvent.options && gameState.currentEvent.options.length > 0;
+
+        if (aiProvidedOptions) {
+            elements.actionPrompt.textContent = "選擇你的行動:";
+            // 排版為橫式，一橫排一個選擇
+            gameState.currentEvent.options.forEach(option => {
+                const button = document.createElement('button');
+                const difficultyText = option.difficulty ? ` (難度: ${option.difficulty})` : '';
+                const diceText = option.diceType ? ` [${option.diceType}]` : '';
+                button.textContent = `${option.text}${difficultyText}${diceText}`;
+                button.className = "w-full px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 transition duration-300"; // Full width for each option
+                button.addEventListener('click', () => handleAction(option));
+                elements.aiActionOptionsContainer.appendChild(button);
+            });
+            // AI 有提供行動時，預設行動隱藏
+            elements.defaultActionsGroup.classList.add('hidden');
+            // 自訂行動區塊始終顯示
+            elements.customActionGroup.classList.remove('hidden'); 
+        } else {
+            elements.actionPrompt.textContent = "AI 尚未提供行動，請選擇預設行動或自訂行動。";
+            // AI 未提供行動時，預設行動和自訂行動必須顯示
+            elements.defaultActionsGroup.classList.remove('hidden'); 
+            elements.customActionGroup.classList.remove('hidden');
+        }
+    }
+    
+    function addStoryEntry(entry) {
+        gameState.storyLog.push(entry);
+        renderStoryLog();
+    }
+
+    function rollDice(diceType) {
+        let result = 0;
+        const maxRoll = diceMap[diceType.toLowerCase()];
+        if (maxRoll) {
+            result = Math.floor(Math.random() * maxRoll) + 1;
+        } else {
+            result = 1; // Default to 1 if diceType is invalid
+        }
+        return result;
+    }
+    
+    function checkGameOver() {
+        if (gameState.hp <= 0) {
+            addStoryEntry({ type: "narration", content: "你的生命值歸零了。這是你的冒險終點。" });
+            endGame();
+            return true;
+        }
+        return false;
+    }
+
+    function endGame() {
+        gameState.currentEvent = null;
+        renderActionOptions(); 
+        showMessage("遊戲結束。你的冒險已經劃下句點。重新整理頁面以開始新的遊戲。");
+    }
+
+    // 將 parseAbilityTrigger 調整為更通用的解析器，用於從能力文本中提取條件和效果
+    function parseAbilityTextForActivation(abilityText) {
+        // Regex to extract ability name, applicable check, dice type, roll range, and effect
+        const regex = /\[([^\]]+)\]:\s*適用於([^，]+)檢定，擲骰\s*(D\d+)，結果\s*(\d+(?:-\d+)?)\s*時觸發。效果：(.+)/;
+        const match = abilityText.match(regex);
+
+        if (!match) {
+            console.warn("未能解析特殊能力文本：", abilityText);
+            return null;
+        }
+
+        const [, abilityName, applicableCheck, diceType, rollRangeStr, effect] = match;
+        const rollRange = rollRangeStr.includes('-')
+            ? rollRangeStr.split('-').map(Number)
+            : [Number(rollRangeStr), Number(rollRangeStr)];
+
+        return {
+            name: abilityName,
+            applicableCheck: applicableCheck.trim(),
+            diceType: diceType.trim().toLowerCase(),
+            rollRange: rollRange,
+            effect: effect.trim()
+        };
+    }
+
+
+    async function handleAction(option) {
+        if (gameState.loadingStory || gameState.hp <= 0) return;
+
+        addStoryEntry({ type: "action", content: option.text });
+        
+        if (option.action === 'suicide_end_game') {
+            addStoryEntry({ type: "narration", content: "你選擇了一個魯莽且致命的行動。你的冒險在震驚的結局中結束了。" });
+            endGame();
+            return;
+        }
+        
+        if (option.damageRoll) {
+            const damage = rollDice(option.damageRoll);
+            gameState.hp -= damage;
+            addStoryEntry({ type: "narration", content: `你受到 ${damage} 點傷害。` });
+            if (checkGameOver()) return;
+        }
+
+        gameState.loadingStory = true;
+        elements.actionPrompt.textContent = "處理中...";
+        renderActionOptions(); 
+        renderStoryLog(); // Update story log with loading animation
+
+        const difficultyModifiers = {
+            "easy": -2,
+            "medium": 0,
+            "hard": 2
+        };
+
+        let adjustedDifficulty = (option.difficulty || 0) + (difficultyModifiers[gameState.difficulty] || 0);
+        
+        // 應用特殊能力帶來的難度減免
+        if (gameState.nextActionDifficultyReduction > 0) {
+            addStoryEntry({ type: "narration", content: `因特殊能力效果，本次行動難度降低 ${gameState.nextActionDifficultyReduction} 點。` });
+            adjustedDifficulty -= gameState.nextActionDifficultyReduction;
+            gameState.nextActionDifficultyReduction = 0; // 使用後重置
+        }
+
+        let success = false;
+        let isCriticalSuccess = false;
+        let isCriticalFailure = false;
+
+        let skill = 0;
+        let skillName = '';
+        let bonusFromAbility = 0; 
+
+        if (option.diceType) {
+            const rollResult = rollDice(option.diceType);
+
+            // 調整後的 parseAbilityTrigger 不再由這裡直接調用，因為能力是主動使用的
+            // 但如果能力文本中包含適用於"任何"檢定且符合特定擲骰結果的被動效果，則需要另行處理
+            // 目前假設能力是主動使用的效果 (例如下一回合難度減免)
+
+            if (option.skill) {
+                skill = gameState[option.skill] || 0;
+                skillName = attributeMapping[option.skill]; 
+            }
+            const totalRoll = rollResult + skill + bonusFromAbility;
+
+            addStoryEntry({ type: "roll", content: `${rollResult} (擲骰) + ${skillName ? skillName + ' ' : ''}屬性 ${skill} + 能力加成 ${bonusFromAbility} = ${totalRoll} vs 難度 ${adjustedDifficulty}` });
+
+            // 判斷成功與大成功/大失敗
+            const criticalThreshold = 3; // 可調整的大成功/大失敗閾值 (例如: 總和超過難度3點為大成功)
+            if (totalRoll >= adjustedDifficulty) {
+                success = true;
+                if (totalRoll >= adjustedDifficulty + criticalThreshold) { 
+                    isCriticalSuccess = true;
+                }
+            } else {
+                success = false;
+                if (totalRoll <= adjustedDifficulty - criticalThreshold) { 
+                    isCriticalFailure = true;
+                }
+            }
+
+            let resultText = '';
+            if (isCriticalSuccess) {
+                resultText = `你大成功了！效果驚人！`;
+            } else if (success) {
+                resultText = `你成功了！`;
+            } else if (isCriticalFailure) {
+                resultText = `你大失敗了！後果嚴重！`;
+            } else {
+                resultText = `你失敗了。`;
+            }
+
+            addStoryEntry({
+                type: "result",
+                content: resultText,
+                success: success,
+                isCriticalSuccess: isCriticalSuccess,
+                isCriticalFailure: isCriticalFailure
+            });
+        }
+        
+        gameState.currentTurn++;
+        // 在新回合開始時減少能力冷卻
+        if (gameState.abilityCooldown > 0) {
+            gameState.abilityCooldown--;
+        }
+        renderCharacterSheet();
+
+        await generateNextStory(option.text, success);
+
+        gameState.loadingStory = false;
+        renderActionOptions(); 
+        renderStoryLog();
+    }
+
+
+    async function handleAbilityUse() {
+        if (!elements.useAbilityBtn || elements.useAbilityBtn.disabled || gameState.loadingStory || gameState.hp <= 0) {
+            showMessage("特殊能力目前無法使用。", 'info');
+            return;
+        }
+
+        if (gameState.abilityCooldown > 0) {
+            showMessage(`特殊能力尚在冷卻中，還有 ${gameState.abilityCooldown} 回合。`, 'info');
+            return;
+        }
+
+        const abilityDetails = parseAbilityTextForActivation(gameState.ability);
+        if (!abilityDetails) {
+            showMessage("特殊能力描述解析失敗，請檢查格式。", 'error');
+            return;
+        }
+
+        addStoryEntry({ type: "ability_use", content: `${abilityDetails.name} (嘗試發動)` });
+
+        // 模擬能力發動的擲骰
+        const rollResult = rollDice(abilityDetails.diceType);
+        addStoryEntry({ type: "roll", content: `發動能力擲骰: ${rollResult} (目標範圍: ${abilityDetails.rollRange[0]}-${abilityDetails.rollRange[1]})` });
+
+        let abilityActivated = false;
+        if (rollResult >= abilityDetails.rollRange[0] && rollResult <= abilityDetails.rollRange[1]) {
+            abilityActivated = true;
+            addStoryEntry({ type: "narration", content: `你的特殊能力 [${abilityDetails.name}] 成功觸發！` });
+            
+            // 應用能力效果
+            const difficultyReductionMatch = abilityDetails.effect.match(/難度降低 (\d+) 點/);
+            if (difficultyReductionMatch) {
+                const reductionAmount = parseInt(difficultyReductionMatch[1], 10);
+                gameState.nextActionDifficultyReduction = reductionAmount;
+                addStoryEntry({ type: "narration", content: `效果：下一次行動的難度將降低 ${reductionAmount} 點。` });
+            } else {
+                addStoryEntry({ type: "narration", content: `能力效果：${abilityDetails.effect}` });
+                // 如果有其他類型的即時效果，可以在這裡添加處理邏輯
+                // 例如: 恢復 HP, 對敵人造成傷害等。目前只處理難度降低。
+            }
+        } else {
+            addStoryEntry({ type: "narration", content: `特殊能力 [${abilityDetails.name}] 未能觸發。` });
+        }
+
+        // 設定冷卻時間
+        gameState.abilityCooldown = gameState.abilityMaxCooldown;
+        addStoryEntry({ type: "narration", content: `特殊能力 [${abilityDetails.name}] 進入 ${gameState.abilityMaxCooldown} 回合冷卻。` });
+        
+        gameState.currentTurn++; // 使用能力也算一個回合
+        // 在新回合開始時減少能力冷卻 (這裡會即時減少一次，因為是同一回合內)
+        if (gameState.abilityCooldown > 0) {
+            gameState.abilityCooldown--;
+        }
+
+        renderCharacterSheet();
+        renderStoryLog();
+        renderActionOptions(); // 刷新行動選項，因為回合數可能增加了
+    }
+
+
+    async function callGeminiApi(prompt) {
+        let retries = 0;
+        const maxRetries = 3;
+        const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+        // Use the embedded API key
+        const currentApiKey = gameState.geminiApiKey; 
+        if (!currentApiKey || currentApiKey === 'YOUR_GEMINI_API_KEY') { // Also check for default placeholder
+            console.error("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。");
+            showMessage("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。", 'error');
+            throw new Error("Gemini API 金鑰遺失。");
+        }
+
+        while (retries < maxRetries) {
+            try {
+                const payload = {
+                    contents: [{ parts: [{ text: prompt }] }],
+                    systemInstruction: {
+                        parts: [{
+                            text: `你是一個單人 TRPG 遊戲的主持人 (Game Master)。
+                            你的任務是根據玩家的選擇，產生一段簡潔的故事敘述，並提供 2-3 個新的行動選項。
+                            你的回答必須是單一的 JSON 物件，格式為:
+                            {
+                                "narrative": "簡短的故事敘述，不超過 200 個中文字。",
+                                "options": [
+                                    {
+                                        "text": "選項的簡短描述，例如'使用劍攻擊'",
+                                        "action": "行動的內部代號，例如'attack_sword'",
+                                        "difficulty": 8, // 該行動的難度值，範圍取決於行動難度，最多不超過使用骰子的9/10
+                                        "diceType": "d20", // 擲骰類型，例如'd6', 'd10', 'd20','d50','d60','d100'
+                                        "skill": "str", // (可選) 相關屬性，例如 'str', 'dex', 'int','con', 'san','cha'
+                                        "damageRoll": "d6" // (可選) 擲骰傷害，例如 'd6', 'd10', 'd20','d50','d60','d100'
+                                    },
+                                    ...
+                                ]
+                            }
+                            每個選項都必須包含 text, action, difficulty 和 diceType。
+                            難度值應該根據行動的合理性而定。
+                            故事敘述和選項都必須與遊戲風格 "${gameState.style}" 相符。
+                            如果玩家的行動明顯是致命或魯莽的，將其選項的 'action' 設定為 'suicide_end_game'。
+                            你必須確保遊戲在 ${gameState.gameLength} 回合內結束，請根據目前 ${gameState.currentTurn} / ${gameState.gameLength} 的回合數來簡化或推進故事。
+                            如果當前回合數到達 ${gameState.gameLength}，請產生一個總結性的結局敘述。不要包含任何額外的文字或解釋，只需提供 JSON 物件。`
+                        }]
+                    },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                    }
+                };
+
+                const response = await fetch(`${API_URL}${currentApiKey}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("API 錯誤回應 (狀態碼:", response.status, "):", errorText);
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText || 'No response body'}`);
+                }
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!jsonText) {
+                    throw new Error("API 回應中找不到 JSON 資料。");
+                }
+                const storyResponse = JSON.parse(jsonText);
+                return storyResponse;
+
+            } catch (error) {
+                console.error(`Fetch attempt ${retries + 1} failed:`, error);
+                if (retries < maxRetries - 1) {
+                    await delay(Math.pow(2, retries) * 1000);
+                } else {
+                    throw error;
+                }
+                retries++;
+            }
+        }
+        return null;
+    }
+    
+    async function generateCharacter(style) {
+        const prompt = `根據一個 "${style}" 的冒險風格，產生一個角色的名字、簡短背景故事、一個特殊能力和基礎屬性。總屬性點數為 ${totalPoints}，分別分配給力量(str)、敏捷(dex)、智力(int)、體力(con)、理智(san)和魅力(cha)。屬性點數必須是整數。HP 必須是 50。回覆的 JSON 格式為: 
+            {"name": "角色名稱", "background": "背景故事", "ability": "特殊能力與觸發條件(例如:[天生神力]: 適用於力量檢定，擲骰 D20，結果 18-20 時觸發。效果：成功難度降低 5。)", "hp": 50, "str": 4, "dex": 4, "int": 4, "con": 4, "san": 4, "cha": 4}。請確保生成的能力格式符合範例。`;
+        try {
+            const currentApiKey = gameState.geminiApiKey; // Use embedded API key
+            if (!currentApiKey || currentApiKey === 'YOUR_GEMINI_API_KEY') { 
+                console.error("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。");
+                showMessage("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。", 'error');
+                throw new Error("Gemini API 金鑰遺失。");
+            }
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: {
+                    parts: [{
+                        text: `你是一個角色創建助手，根據提供的風格產生角色屬性。你的回答必須是單一的 JSON 物件，格式為:
+                        {
+                            "name": "角色名稱",
+                            "background": "背景故事",
+                            "ability": "特殊能力與觸發條件(例如:[天生神力]: 適用於力量檢定，擲骰 D20，結果 18-20 時觸發。效果：成功難度降低 5。)",
+                            "hp": 50,
+                            "str": 0,
+                            "dex": 0,
+                            "int": 0,
+                            "con": 0,
+                            "san": 0,
+                            "cha": 0
+                        }
+                        請確保 str + dex + int + con + san + cha = ${totalPoints}，且 hp = 50。
+                        不要包含任何額外的文字或解釋，只需提供 JSON 物件。`
+                    }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
+            };
+
+            const response = await fetch(`${API_URL}${currentApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
+            const result = await response.json();
+            const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            return JSON.parse(jsonText);
+        } catch (error) {
+            console.error("生成角色失敗:", error);
+            showMessage(`生成角色失敗: ${error.message}`, 'error');
+            return null;
+        }
+    }
+
+    async function suggestAttributeForCustomAction(actionText) {
+        const currentApiKey = gameState.geminiApiKey; // Use embedded API key
+        if (!currentApiKey || currentApiKey === 'YOUR_GEMINI_API_KEY') {
+            console.error("Gemini API 金鑰遺失或未設定。");
+            return { skill: null, reason: "API 金鑰遺失" };
+        }
+
+        const prompt = `分析以下行動並建議最適合的屬性(str, dex, int, con, san, cha)來進行檢定。回覆的 JSON 格式為: {"skill": "str", "reason": "建議理由"}。行動描述："${actionText}"`;
+        try {
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                systemInstruction: {
+                    parts: [{
+                        text: `你是一個遊戲助手，根據行動描述建議最相關的屬性。回覆必須是單一的 JSON 物件，格式為:
+                        {"skill": "str", "reason": "建議理由"}
+                        請從 str, dex, int, con, san, cha 中選擇一個屬性。
+                        不要包含任何額外的文字或解釋，只需提供 JSON 物件。`
+                    }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                }
+            };
+
+            const response = await fetch(`${API_URL}${currentApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("API 錯誤回應 (屬性建議):", errorText);
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText || 'No response body'}`);
+            }
+            const result = await response.json();
+            const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            return JSON.parse(jsonText);
+        } catch (error) {
+            console.error("屬性建議失敗:", error);
+            return { skill: null, reason: `屬性建議失敗: ${error.message}` };
+        }
+    }
+
+    async function generateNextStory(playerAction, success) {
+        let prompt;
+        if (gameState.currentTurn > gameState.gameLength) { 
+            prompt = `玩家選擇了 "${playerAction}"。遊戲回合已結束。請根據目前故事簡潔地寫一個總結性的結局。`;
+        } else {
+            const actionResult = success ? "成功" : "失敗";
+            prompt = `玩家選擇了 "${playerAction}"，並且行動結果為 "${actionResult}"。繼續故事。請確保故事進度符合當前 ${gameState.currentTurn} / ${gameState.gameLength} 回合。`;
+        }
+
+        try {
+            const storyResponse = await callGeminiApi(prompt);
+            if (!storyResponse || !storyResponse.narrative) {
+                throw new Error("API 回應無效或故事內容遺失。");
+            }
+            let narrative = storyResponse.narrative;
+            if (narrative.length > 300) {
+                narrative = narrative.substring(0, 300) + '...';
+            }
+
+            addStoryEntry({ type: "event", content: escapeHtml(narrative) });
+            gameState.currentEvent = { options: storyResponse.options };
+
+            if (gameState.currentTurn > gameState.gameLength) {
+                 endGame();
+            }
+
+        } catch (error) {
+            console.error("後續故事生成失敗:", error);
+            addStoryEntry({ type: "narration", content: `無法繼續冒險。錯誤: ${error.message || '未知錯誤'}。你感到一陣茫然。` });
+            gameState.currentEvent = {
+                options: [] 
+            };
+        } finally {
+            gameState.loadingStory = false;
+            renderActionOptions(); 
+            renderStoryLog();
+        }
+    }
+
+    async function generateInitialStory() {
+        if (gameState.loadingStory) return;
+
+        addStoryEntry({ type: "narration", content: `歡迎，${gameState.name}。你的冒險風格是 ${gameState.style}。` });
+        addStoryEntry({ type: "narration", content: "正在為你生成初始冒險故事..." });
+
+        gameState.loadingStory = true;
+        elements.actionPrompt.textContent = "處理中...";
+        gameState.currentEvent = { options: [] }; 
+        renderActionOptions(); 
+        renderStoryLog(); // Show loading animation
+
+        const prompt = `以 ${gameState.style} 風格，為角色 ${gameState.name} 產生一個初始冒險場景。故事必須在 ${gameState.gameLength} 回合內結束，請從現在開始為此做鋪陳。`;
+        try {
+            const storyResponse = await callGeminiApi(prompt);
+            if (!storyResponse || !storyResponse.narrative) {
+                throw new Error("API 回應無效或故事內容遺失。");
+            }
+            let narrative = storyResponse.narrative;
+            if (narrative.length > 300) {
+                narrative = narrative.substring(0, 300) + '...';
+            }
+
+            addStoryEntry({ type: "event", content: escapeHtml(narrative) });
+            gameState.currentEvent = { options: storyResponse.options };
+        } catch (error) {
+            console.error("初始故事生成失敗:", error);
+            addStoryEntry({ type: "narration", content: `無法啟動冒險。錯誤: ${error.message || '未知錯誤'}。你感到一陣茫然。` });
+            gameState.currentEvent = {
+                options: [] 
+            };
+        } finally {
+            gameState.loadingStory = false;
+            renderActionOptions(); 
+            renderStoryLog();
+        }
+    }
+    
+    function updatePointsLeft() {
+        let total = 0;
+        statInputs.forEach(id => {
+            if (elements[id]) { // Added check
+                total += parseInt(elements[id].value, 10) || 0;
+            }
+        });
+        const pointsLeft = totalPoints - total;
+        if (elements.pointsLeft) elements.pointsLeft.textContent = `剩餘點數: ${pointsLeft}`; // Added check
+        if (pointsLeft < 0) {
+            if (elements.pointsLeft) elements.pointsLeft.classList.add('text-red-400'); // Added check
+            if (elements.startGameBtn) { // Added check
+                elements.startGameBtn.disabled = true;
+                elements.startGameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        } else {
+            if (elements.pointsLeft) elements.pointsLeft.classList.remove('text-red-400'); // Added check
+            if (elements.startGameBtn) { // Added check
+                elements.startGameBtn.disabled = false;
+                elements.startGameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+    }
+
+    // Function to update the max difficulty for custom action based on selected dice
+    function updateMaxDifficulty() {
+        if (!elements.customActionDice || !elements.customActionDifficulty) return; // Added check
+        const selectedDiceType = elements.customActionDice.value.toLowerCase();
+        const maxRoll = diceMap[selectedDiceType];
+        if (maxRoll) {
+            const newMaxDifficulty = Math.floor(maxRoll * 0.9);
+            elements.customActionDifficulty.max = newMaxDifficulty;
+            // Ensure current value doesn't exceed new max
+            if (parseInt(elements.customActionDifficulty.value, 10) > newMaxDifficulty) {
+                elements.customActionDifficulty.value = newMaxDifficulty;
+            }
+            elements.customActionDifficulty.placeholder = `最大: ${newMaxDifficulty}`;
+        } else {
+            elements.customActionDifficulty.max = 10; // Default max if diceType is unknown
+            elements.customActionDifficulty.placeholder = `最大: 10`;
+        }
+    }
+
+
+    async function handleCustomAction() {
+        if (!elements.customActionText || !elements.customActionDice || !elements.customActionDifficulty || !elements.aiAttributeSuggestion) return; // Added check
+        const customActionText = elements.customActionText.value.trim();
+        const customActionDice = elements.customActionDice.value;
+        const customActionDifficulty = parseInt(elements.customActionDifficulty.value, 10);
+
+        if (!customActionText) {
+            showMessage('請輸入自訂行動的描述。', 'error');
+            return;
+        }
+
+        const maxAllowedDifficulty = Math.floor(diceMap[customActionDice.toLowerCase()] * 0.9);
+        if (isNaN(customActionDifficulty) || customActionDifficulty < 1 || customActionDifficulty > maxAllowedDifficulty) {
+            showMessage(`行動難度必須是 1 到 ${maxAllowedDifficulty} 之間的數字 (所選骰子點數的 9/10)。`, 'error');
+            return;
+        }
+
+        const skillToUse = gameState.aiSuggestedCustomSkill || null; 
+
+        const customOption = {
+            text: customActionText,
+            action: 'custom_action',
+            difficulty: customActionDifficulty,
+            diceType: customActionDice,
+            skill: skillToUse 
+        };
+
+        elements.customActionText.value = '';
+        if (elements.customActionDice) elements.customActionDifficulty.value = Math.floor(diceMap[elements.customActionDice.value.toLowerCase()] * 0.9 / 2); // Added check for customActionDice
+        if (elements.aiAttributeSuggestion) elements.aiAttributeSuggestion.textContent = 'AI 建議屬性: 待分析'; // Added check
+        gameState.aiSuggestedCustomSkill = null;
+
+        await handleAction(customOption);
+    }
+
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), delay);
+        };
+    }
+
+    // --- JSON File Management Functions ---
+    function downloadGameState() {
+        const filename = `${gameState.name || '未命名角色'}_TRPG_Save.json`;
+        const jsonStr = JSON.stringify(gameState, null, 2); // Pretty print JSON
+
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showMessage('遊戲記錄已下載！');
+    }
+
+    function uploadGameState(event) {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const loadedState = JSON.parse(e.target.result);
+                // Basic validation
+                if (loadedState && loadedState.name && loadedState.hp !== undefined) {
+                    gameState = loadedState;
+                    // API key is embedded, no need to update input field.
+                    showGamePage(); 
+                    renderCharacterSheet();
+                    renderStoryLog();
+                    renderActionOptions();
+                    showMessage('遊戲記錄已上傳成功！');
+                } else {
+                    showMessage('上傳的遊戲記錄檔案格式不正確。', 'error');
+                }
+            } catch (error) {
+                console.error('解析上傳檔案失敗:', error);
+                showMessage(`解析上傳檔案失敗: ${error.message}`, 'error');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // Initialize the game
+    window.onload = async () => {
+        // Populate the global elements object
+        elements = {
+            setupPage: document.getElementById('setup-page'),
+            characterCreationPage: document.getElementById('character-creation-page'),
+            gamePage: document.getElementById('game-page'),
+            storyColumn: document.getElementById('story-column'),
+            nextToCharBtn: document.getElementById('next-to-char-btn'),
+            startGameBtn: document.getElementById('start-game-btn'),
+            
+            gameStyleSelect: document.getElementById('game-style-select'),
+            customStyleInputContainer: document.getElementById('custom-style-input-container'),
+            customStyleInput: document.getElementById('custom-style-input'),
+            gameTurns: document.getElementById('game-turns'),
+            difficultyRadios: document.getElementsByName('difficulty'),
+
+            charName: document.getElementById('char-name'),
+            charBackground: document.getElementById('char-background'),
+            charAbilityInput: document.getElementById('char-ability-input'), // Updated ID
+            pointsLeft: document.getElementById('points-left'),
+            
+            'char-str': document.getElementById('char-str'),
+            'char-dex': document.getElementById('char-dex'),
+            'char-int': document.getElementById('char-int'),
+            'char-con': document.getElementById('char-con'),
+            'char-san': document.getElementById('char-san'),
+            'char-cha': document.getElementById('char-cha'),
+            
+            displayName: document.getElementById('display-name'),
+            displayStyle: document.getElementById('display-style'),
+            displayCurrentTurn: document.getElementById('display-current-turn'), 
+            displayHpValue: document.getElementById('display-hp-value'),
+            hpBar: document.getElementById('hp-bar'),
+            displayStrValue: document.getElementById('display-str-value'),
+            displayDexValue: document.getElementById('display-dex-value'),
+            displayIntValue: document.getElementById('display-int-value'),
+            displayConValue: document.getElementById('display-con-value'),
+            displaySanValue: document.getElementById('display-san-value'),
+            displayChaValue: document.getElementById('display-cha-value'),
+            displayBackground: document.getElementById('display-background'),
+            displayAbilityContainer: document.getElementById('display-ability-container'), // New element
+            displayAbilityText: document.getElementById('display-ability-text'), // New element
+            useAbilityBtn: document.getElementById('use-ability-btn'), // New element
+            abilityCooldownDisplay: document.getElementById('ability-cooldown-display'), // New element
+            
+            storyLog: document.getElementById('story-log'),
+            actionPrompt: document.getElementById('action-prompt'),
+            aiActionOptionsContainer: document.getElementById('ai-action-options-container'), // New element for AI options
+
+            defaultActionsGroup: document.getElementById('default-actions-group'), // New element for default actions
+            defaultActionForward: document.getElementById('default-action-forward'),
+            defaultActionObserve: document.getElementById('default-action-observe'),
+            defaultActionRest: document.getElementById('default-action-rest'),
+
+            customActionGroup: document.getElementById('custom-action-group'), // New element for custom actions
+            customActionText: document.getElementById('custom-action-text'),
+            customActionDice: document.getElementById('custom-action-dice'),
+            customActionDifficulty: document.getElementById('custom-action-difficulty'),
+            executeCustomActionBtn: document.getElementById('execute-custom-action-btn'),
+            aiAttributeSuggestion: document.getElementById('ai-attribute-suggestion'),
+
+            // Google Auth Elements (all removed, but keeping placeholder for elements object structure)
+            userInfo: document.getElementById('user-info'), // This element remains, but will be empty
+            driveSavesList: document.getElementById('drive-saves-list'),
+            driveSavesContainer: document.getElementById('drive-saves-container'),
+        };
+
+        // --- Event Listeners ---
+        if (elements.gameStyleSelect) { 
+            elements.gameStyleSelect.addEventListener('change', (e) => {
+                if (e.target.value === '自定義') {
+                    if (elements.customStyleInputContainer) elements.customStyleInputContainer.classList.remove('hidden');
+                } else {
+                    if (elements.customStyleInputContainer) elements.customStyleInputContainer.classList.add('hidden');
+                }
+            });
+        }
+
+        statInputs.forEach(id => {
+            if (elements[id]) { 
+                elements[id].addEventListener('input', updatePointsLeft);
+            }
+        });
+        updatePointsLeft();
+
+        // New event listener for custom dice selection to update max difficulty
+        if (elements.customActionDice) { 
+            elements.customActionDice.addEventListener('change', updateMaxDifficulty);
+        }
+        // Initial call to set max difficulty based on default dice
+        updateMaxDifficulty();
+
+        if (elements.nextToCharBtn) { 
+            elements.nextToCharBtn.addEventListener('click', async () => {
+                let selectedStyle = elements.gameStyleSelect ? elements.gameStyleSelect.value : ''; 
+                if (selectedStyle === '自定義') {
+                    selectedStyle = elements.customStyleInput ? elements.customStyleInput.value : ''; 
+                    if (!selectedStyle.trim()) {
+                        showMessage('請輸入自定義世界觀或選擇一個預設風格。', 'error');
+                        return;
+                    }
+                }
+                
+                gameState.style = selectedStyle;
+                gameState.gameLength = parseInt(elements.gameTurns ? elements.gameTurns.value : '6', 10); 
+                gameState.currentTurn = 1; 
+                gameState.difficulty = Array.from(elements.difficultyRadios).find(radio => radio.checked)?.value || "medium"; 
+                
+                showCharacterCreationPage();
+                
+                const loadingMessage = "正在為你生成角色背景故事與能力...請稍候";
+                if (elements.charName) elements.charName.placeholder = loadingMessage; 
+                if (elements.charBackground) elements.charBackground.placeholder = loadingMessage; 
+                if (elements.charAbilityInput) elements.charAbilityInput.placeholder = loadingMessage; // Updated ID
+                
+                const newCharacter = await generateCharacter(gameState.style);
+                if (newCharacter) {
+                    if (elements.charName) elements.charName.value = newCharacter.name; 
+                    if (elements.charBackground) elements.charBackground.value = newCharacter.background; 
+                    if (elements.charAbilityInput) elements.charAbilityInput.value = newCharacter.ability; // Updated ID
+                    
+                    if (elements['char-str']) elements['char-str'].value = newCharacter.str; 
+                    if (elements['char-dex']) elements['char-dex'].value = newCharacter.dex; 
+                    if (elements['char-int']) elements['char-int'].value = newCharacter.int; 
+                    if (elements['char-con']) elements['char-con'].value = newCharacter.con; 
+                    if (elements['char-san']) elements['char-san'].value = newCharacter.san; 
+                    if (elements['char-cha']) elements['char-cha'].value = newCharacter.cha; 
+                    updatePointsLeft();
+                } else {
+                    if (elements.charName) elements.charName.placeholder = "生成失敗"; 
+                    if (elements.charBackground) elements.charBackground.placeholder = "生成失敗"; 
+                    if (elements.charAbilityInput) elements.charAbilityInput.placeholder = "生成失敗"; // Updated ID
+                }
+            });
+        }
+
+        if (elements.startGameBtn) { 
+            elements.startGameBtn.addEventListener('click', async () => {
+                let currentAllocatedPoints = 0;
+                statInputs.forEach(id => {
+                    if (elements[id]) { 
+                        currentAllocatedPoints += parseInt(elements[id].value, 10) || 0;
+                    }
+                });
+                if (currentAllocatedPoints !== totalPoints) { // Modified: Check against new totalPoints
+                    showMessage(`請分配完所有 ${totalPoints} 點屬性點數。目前還有 ${totalPoints - currentAllocatedPoints} 點未分配。`, 'error');
+                    return;
+                }
+                
+                gameState.name = elements.charName ? elements.charName.value : ''; 
+                gameState.background = elements.charBackground ? elements.charBackground.value : ''; 
+                gameState.ability = elements.charAbilityInput ? elements.charAbilityInput.value : ''; // Updated ID
+                gameState.str = parseInt(elements['char-str'] ? elements['char-str'].value : '0', 10) || 0; 
+                gameState.dex = parseInt(elements['char-dex'] ? elements['char-dex'].value : '0', 10) || 0; 
+                gameState.int = parseInt(elements['char-int'] ? elements['char-int'].value : '0', 10) || 0; 
+                gameState.con = parseInt(elements['char-con'] ? elements['char-con'].value : '0', 10) || 0; 
+                gameState.san = parseInt(elements['char-san'] ? elements['char-san'].value : '0', 10) || 0; 
+                gameState.cha = parseInt(elements['char-cha'] ? elements['char-cha'].value : '0', 10) || 0; 
+
+                if (!gameState.name.trim() || !gameState.background.trim() || !gameState.ability.trim()) {
+                    showMessage('角色名稱、背景故事和特殊能力都不能為空。', 'error');
+                    return;
+                }
+
+                showGamePage();
+                renderCharacterSheet();
+                await generateInitialStory();
+            });
+        }
+
+        if (elements.defaultActionForward) { 
+            elements.defaultActionForward.addEventListener('click', () => {
+                handleAction({ text: "持續前進", action: "keep_moving", difficulty: 5, diceType: 'd6', skill: 'con' });
+            });
+        }
+        if (elements.defaultActionObserve) { 
+            elements.defaultActionObserve.addEventListener('click', () => {
+                handleAction({ text: "觀察情況", action: "observe", difficulty: 7, diceType: 'd10', skill: 'int' });
+            });
+        }
+        if (elements.defaultActionRest) { 
+            elements.defaultActionRest.addEventListener('click', () => {
+                handleAction({ text: "原地休息", action: "rest", difficulty: 3, diceType: 'd6', skill: 'con' });
+            });
+        }
+
+        if (elements.executeCustomActionBtn) { 
+            elements.executeCustomActionBtn.addEventListener('click', handleCustomAction);
+        }
+
+        if (elements.customActionText) { 
+            elements.customActionText.addEventListener('input', debounce(async () => {
+                const actionText = elements.customActionText ? elements.customActionText.value.trim() : ''; 
+                if (actionText.length > 5) {
+                    if (elements.aiAttributeSuggestion) elements.aiAttributeSuggestion.textContent = 'AI 建議屬性: 分析中...'; 
+                    const suggestion = await suggestAttributeForCustomAction(actionText);
+                    if (suggestion && suggestion.skill) {
+                        gameState.aiSuggestedCustomSkill = suggestion.skill;
+                        if (elements.aiAttributeSuggestion) elements.aiAttributeSuggestion.textContent = `AI 建議屬性: ${attributeMapping[suggestion.skill]} (基於：${suggestion.reason})`; 
+                    } else {
+                        gameState.aiSuggestedCustomSkill = null;
+                        if (elements.aiAttributeSuggestion) elements.aiAttributeSuggestion.textContent = 'AI 建議屬性: 待分析'; 
+                    }
+                } else {
+                    gameState.aiSuggestedCustomSkill = null;
+                    if (elements.aiAttributeSuggestion) elements.aiAttributeSuggestion.textContent = 'AI 建議屬性: 待分析'; 
+                }
+            }, 500));
+        }
+
+        // 新增特殊能力按鈕事件監聽器
+        if (elements.useAbilityBtn) {
+            elements.useAbilityBtn.addEventListener('click', handleAbilityUse);
+        }
+
+        // JSON File Management Handlers
+        if (elements.downloadGameStateBtn) { 
+            elements.downloadGameStateBtn.addEventListener('click', downloadGameState);
+        }
+        if (elements.uploadGameStateBtn) { 
+            elements.uploadGameStateBtn.addEventListener('click', () => {
+                if (elements.uploadGameStateInput) elements.uploadGameStateInput.click(); 
+            });
+        }
+        if (elements.uploadGameStateInput) { 
+            elements.uploadGameStateInput.addEventListener('change', uploadGameState);
+        }
+
+        showSetupPage();
+    };
+</script>
+
+</body>
+</html>
