@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>單人 TRPG 冒險 (Gemini Canvas 方便自訂版)</title>
+    <title>單人 TRPG 冒險 (Gemini Canvas 版)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -345,12 +345,14 @@
 <script type="module">
     const GOOGLE_APP_NAME = 'TRPG_Game_Gemini_Canvas'; // 此常數不再使用，但保留以防萬一
 
-    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+    // 1. API_URL 已更新為 gemini-2.5-flash-preview-09-2025
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=";
 
     const GAME_STATE_FILENAME = 'trpg_game_state.json';
 
     let gameState = {
-        geminiApiKey: "AIzaSyCEIsgA8IDtFfJX1sNNv48xnm1TTYKInm4", // Embedded API key
+        // 2. API Key 已更新
+        geminiApiKey: "AIzaSyDx2UbqeiAYFirj0kM3sVgoUg4H_Zfk1dE", 
         name: "",
         background: "",
         ability: "",
@@ -370,13 +372,13 @@
         currentTurn: 1, 
         difficulty: "medium",
         aiSuggestedCustomSkill: null,
-        abilityCooldown: 0, // 新增: 特殊能力冷卻時間
-        abilityMaxCooldown: 3, // 新增: 特殊能力最大冷卻時間 (例如 3 回合)
-        nextActionDifficultyReduction: 0 // 新增: 下次行動的難度減免
+        abilityCooldown: 0, // 特殊能力冷卻時間
+        abilityMaxCooldown: 3, // 特殊能力最大冷卻時間 (例如 3 回合)
+        nextActionDifficultyReduction: 0 // 下次行動的難度減免
     };
     
     const statInputs = ['char-str', 'char-dex', 'char-int', 'char-con', 'char-san', 'char-cha'];
-    const totalPoints = 10; // Modified: 總屬性點數為 10
+    const totalPoints = 10; // 總屬性點數為 10
     const attributeMapping = { // 用於屬性名稱顯示
         str: '力量',
         dex: '敏捷',
@@ -1260,6 +1262,11 @@
             executeCustomActionBtn: document.getElementById('execute-custom-action-btn'),
             aiAttributeSuggestion: document.getElementById('ai-attribute-suggestion'),
 
+            // JSON management
+            downloadGameStateBtn: document.getElementById('download-game-state-btn'),
+            uploadGameStateBtn: document.getElementById('upload-game-state-btn'),
+            uploadGameStateInput: document.getElementById('upload-game-state'),
+
             // Google Auth Elements (all removed, but keeping placeholder for elements object structure)
             userInfo: document.getElementById('user-info'), // This element remains, but will be empty
             driveSavesList: document.getElementById('drive-saves-list'),
@@ -1433,4 +1440,3 @@
 
 </body>
 </html>
-
