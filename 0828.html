@@ -102,6 +102,13 @@
             <h2 class="text-2xl font-semibold text-center mb-4 text-emerald-400">冒險設定</h2>
 
             <div class="space-y-4">
+                <!-- API Key 輸入區塊 -->
+                <div class="space-y-2 p-4 bg-gray-700 rounded-lg border border-gray-600">
+                    <label for="api-key-input" class="block text-sm font-bold text-yellow-400">Gemini API Key (必填):</label>
+                    <input type="password" id="api-key-input" placeholder="貼上您的 API Key" class="mt-1 block w-full rounded-md bg-gray-800 border-gray-500 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500 placeholder-gray-500">
+                    <p class="text-xs text-gray-400">我們不會儲存您的 Key，僅用於本次遊戲連線。</p>
+                </div>
+
                 <div class="space-y-2">
                     <label for="game-style-select" class="block text-sm font-medium">冒險風格：</label>
                     <select id="game-style-select" class="mt-1 block w-full rounded-md bg-gray-700 border-gray-600 shadow-sm p-2 text-gray-200 focus:ring-teal-500 focus:border-teal-500">
@@ -351,8 +358,8 @@
     const GAME_STATE_FILENAME = 'trpg_game_state.json';
 
     let gameState = {
-        // 2. API Key 已更新
-        geminiApiKey: "AIzaSyDx2UbqeiAYFirj0kM3sVgoUg4H_Zfk1dE", 
+        // 2. API Key 初始化為空，需由使用者輸入
+        geminiApiKey: "", 
         name: "",
         background: "",
         ability: "",
@@ -810,9 +817,9 @@
 
         // Use the embedded API key
         const currentApiKey = gameState.geminiApiKey; 
-        if (!currentApiKey || currentApiKey === 'YOUR_GEMINI_API_KEY') { // Also check for default placeholder
-            console.error("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。");
-            showMessage("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。", 'error');
+        if (!currentApiKey || currentApiKey === '') { // Also check for default placeholder
+            console.error("Gemini API 金鑰遺失或未設定。");
+            showMessage("Gemini API 金鑰遺失或未設定。請確認已在「冒險設定」頁面輸入金鑰。", 'error');
             throw new Error("Gemini API 金鑰遺失。");
         }
 
@@ -891,9 +898,9 @@
             {"name": "角色名稱", "background": "背景故事", "ability": "特殊能力與觸發條件(例如:[天生神力]: 適用於力量檢定，擲骰 D20，結果 18-20 時觸發。效果：成功難度降低 5。)", "hp": 50, "str": 4, "dex": 4, "int": 4, "con": 4, "san": 4, "cha": 4}。請確保生成的能力格式符合範例。`;
         try {
             const currentApiKey = gameState.geminiApiKey; // Use embedded API key
-            if (!currentApiKey || currentApiKey === 'YOUR_GEMINI_API_KEY') { 
-                console.error("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。");
-                showMessage("Gemini API 金鑰遺失或未設定。請確認已在程式碼中設定金鑰。", 'error');
+            if (!currentApiKey || currentApiKey === '') { 
+                console.error("Gemini API 金鑰遺失或未設定。");
+                showMessage("Gemini API 金鑰遺失或未設定。請確認已在「冒險設定」頁面輸入金鑰。", 'error');
                 throw new Error("Gemini API 金鑰遺失。");
             }
 
@@ -945,7 +952,7 @@
 
     async function suggestAttributeForCustomAction(actionText) {
         const currentApiKey = gameState.geminiApiKey; // Use embedded API key
-        if (!currentApiKey || currentApiKey === 'YOUR_GEMINI_API_KEY') {
+        if (!currentApiKey || currentApiKey === '') {
             console.error("Gemini API 金鑰遺失或未設定。");
             return { skill: null, reason: "API 金鑰遺失" };
         }
@@ -1211,6 +1218,8 @@
             nextToCharBtn: document.getElementById('next-to-char-btn'),
             startGameBtn: document.getElementById('start-game-btn'),
             
+            apiKeyInput: document.getElementById('api-key-input'), // 新增 API Key 輸入欄位
+
             gameStyleSelect: document.getElementById('game-style-select'),
             customStyleInputContainer: document.getElementById('custom-style-input-container'),
             customStyleInput: document.getElementById('custom-style-input'),
@@ -1300,6 +1309,13 @@
 
         if (elements.nextToCharBtn) { 
             elements.nextToCharBtn.addEventListener('click', async () => {
+                // 檢查 API Key
+                if (!elements.apiKeyInput || !elements.apiKeyInput.value.trim()) {
+                    showMessage('請輸入 Gemini API Key 才能開始遊戲。', 'error');
+                    return;
+                }
+                gameState.geminiApiKey = elements.apiKeyInput.value.trim();
+
                 let selectedStyle = elements.gameStyleSelect ? elements.gameStyleSelect.value : ''; 
                 if (selectedStyle === '自定義') {
                     selectedStyle = elements.customStyleInput ? elements.customStyleInput.value : ''; 
